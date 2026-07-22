@@ -1,0 +1,9 @@
+target/
+build/
+logs/
+.gradle/
+.idea/
+.env
+.env.*
+src/main/resources/application.properties
+*.log
