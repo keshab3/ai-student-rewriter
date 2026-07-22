@@ -255,10 +255,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers,
+    });
+  } catch {
+    throw new Error(`Backend is not reachable at ${API_BASE_URL}. Start the backend server and try again.`);
+  }
 
   if (!response.ok) {
     throw await parseError(response);
