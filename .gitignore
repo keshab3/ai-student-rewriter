@@ -18,6 +18,7 @@ backend-dev.*.log
 .env
 .env.*
 !.env.example
+backend/src/main/resources/application.properties
 *.pem
 *.key
 *.p12
