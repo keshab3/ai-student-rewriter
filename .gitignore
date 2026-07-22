@@ -1,0 +1,64 @@
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Local logs and runtime output
+*.log
+logs/
+backend/logs/
+frontend-dev.*.log
+backend-dev.*.log
+
+# Environment and secret files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/coverage/
+frontend/.vercel/
+frontend/test-results/
+frontend/playwright-report/
+frontend/next-env.d.ts
+frontend/*.tsbuildinfo
+frontend/.pnp
+frontend/.pnp.*
+frontend/.yarn/*
+!frontend/.yarn/patches
+!frontend/.yarn/plugins
+!frontend/.yarn/releases
+!frontend/.yarn/versions
+
+# Backend build output
+backend/target/
+backend/build/
+backend/.gradle/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Local Python and generated helper caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Office temporary files
+~$*.docx
+~$*.pptx
+
+# Old reference documents kept locally only
+AI_Student_Rewriter_SOP.docx
+Final ppt.pptx
+
+# Nested Git backup if the frontend starter repository is moved aside
+**/.git_backup*/
