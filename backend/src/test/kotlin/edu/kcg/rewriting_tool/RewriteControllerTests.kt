@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -192,6 +193,80 @@ class RewriteControllerTests(
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.displayName").value("Updated Student"))
             .andExpect(jsonPath("$.email").value("updated@example.com"))
+    }
+
+    @Test
+    fun `admin can list and delete user accounts`() {
+        val username = "delete-${UUID.randomUUID()}"
+        val password = "student123"
+        mockMvc.perform(
+            post("/api/admin/users")
+                .header(HttpHeaders.AUTHORIZATION, basicAuth())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "username": "$username",
+                      "password": "$password",
+                      "displayName": "Delete Me",
+                      "fullName": "Delete Me",
+                      "email": "delete@example.com",
+                      "enabled": true
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.username").value(username))
+
+        val usersJson = mockMvc.perform(
+            get("/api/admin/users")
+                .header(HttpHeaders.AUTHORIZATION, basicAuth()),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$[*].username", hasItem(username)))
+            .andReturn()
+            .response
+            .contentAsString
+        val userId = Regex(""""id"\s*:\s*(\d+)[^}]*"username"\s*:\s*"${Regex.escape(username)}"""")
+            .find(usersJson)
+            ?.groupValues
+            ?.get(1)
+            ?: error("Admin user id was missing.")
+        val updatedUsername = "$username-updated"
+
+        mockMvc.perform(
+            put("/api/admin/users/$userId")
+                .header(HttpHeaders.AUTHORIZATION, basicAuth())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "username": "$updatedUsername",
+                      "password": "updated123",
+                      "displayName": "Updated User",
+                      "fullName": "Updated User Name",
+                      "email": "updated-delete@example.com",
+                      "enabled": true
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.username").value(updatedUsername))
+            .andExpect(jsonPath("$.displayName").value("Updated User"))
+
+        mockMvc.perform(
+            delete("/api/admin/users/$userId")
+                .header(HttpHeaders.AUTHORIZATION, basicAuth()),
+        )
+            .andExpect(status().isNoContent)
+
+        mockMvc.perform(
+            get("/api/auth/me")
+                .header(HttpHeaders.AUTHORIZATION, basicAuth(updatedUsername, "updated123")),
+        )
+            .andExpect(status().isUnauthorized)
     }
 
     @Test

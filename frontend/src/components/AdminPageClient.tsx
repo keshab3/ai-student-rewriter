@@ -5,28 +5,48 @@ import {
   faCircleCheck,
   faRotateRight,
   faSpinner,
+  faTrashCan,
   faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { FormEvent, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import {
+  AdminCreateUserInput,
   AdminAuditLog,
   AdminSession,
+  AdminUpdateUserInput,
+  AdminUser,
+  createAdminUser,
   ContactMessageResponse,
+  deleteAdminUser,
   getAdminSession,
   listAdminAuditLogs,
+  listAdminUsers,
   listContactMessages,
   listPromptSettings,
   PromptSetting,
   RewriteMode,
+  updateAdminUser,
   updatePromptSetting,
   UpdatePromptSettingInput,
 } from "@/lib/api";
+import { clearUserToken, readUserToken, saveUserToken } from "@/lib/auth";
 import { formatDate } from "@/components/RewriteWorkspace";
 import { Skeleton, SkeletonText } from "@/components/Skeleton";
 
 const ADMIN_TOKEN_STORAGE_KEY = "ai-student-rewriter-admin-token";
 
 type PromptDrafts = Partial<Record<RewriteMode, UpdatePromptSettingInput>>;
+type AdminTab = "USERS" | "PROMPTS";
+
+const emptyNewUser: AdminCreateUserInput = {
+  username: "",
+  password: "",
+  displayName: "",
+  fullName: "",
+  email: "",
+  enabled: true,
+};
 
 export function AdminPageClient() {
   const [username, setUsername] = useState("admin");
@@ -37,10 +57,18 @@ export function AdminPageClient() {
   const [drafts, setDrafts] = useState<PromptDrafts>({});
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
   const [contactMessages, setContactMessages] = useState<ContactMessageResponse[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [activeTab, setActiveTab] = useState<AdminTab>("USERS");
+  const [newUser, setNewUser] = useState<AdminCreateUserInput>(emptyNewUser);
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [editUser, setEditUser] = useState<AdminUpdateUserInput | null>(null);
   const [isBooting, setIsBooting] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [savingMode, setSavingMode] = useState<RewriteMode | null>(null);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [savingUserId, setSavingUserId] = useState<number | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -59,18 +87,24 @@ export function AdminPageClient() {
         if (!isActive) return;
         setToken(savedToken);
         setSession(adminSession);
-        const [promptSettings, logs, messages] = await Promise.all([
+        saveUserToken(savedToken);
+        const [promptSettings, logs, messages, adminUsers] = await Promise.all([
           listPromptSettings(savedToken),
           listAdminAuditLogs(savedToken),
           listContactMessages(savedToken),
+          listAdminUsers(savedToken),
         ]);
         if (!isActive) return;
         setSettings(promptSettings);
         setDrafts(createDrafts(promptSettings));
         setAuditLogs(logs);
         setContactMessages(messages);
+        setUsers(adminUsers);
       } catch {
         window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+        if (readUserToken() === savedToken) {
+          clearUserToken();
+        }
       } finally {
         if (isActive) {
           setIsBooting(false);
@@ -90,15 +124,17 @@ export function AdminPageClient() {
     setIsLoading(true);
     setError(null);
     try {
-      const [promptSettings, logs, messages] = await Promise.all([
+      const [promptSettings, logs, messages, adminUsers] = await Promise.all([
         listPromptSettings(authToken),
         listAdminAuditLogs(authToken),
         listContactMessages(authToken),
+        listAdminUsers(authToken),
       ]);
       setSettings(promptSettings);
       setDrafts(createDrafts(promptSettings));
       setAuditLogs(logs);
       setContactMessages(messages);
+      setUsers(adminUsers);
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -128,6 +164,7 @@ export function AdminPageClient() {
       setToken(authToken);
       setSession(adminSession);
       window.localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, authToken);
+      saveUserToken(authToken);
       await loadAdminData(authToken);
     } catch (loginError) {
       setError(
@@ -142,12 +179,19 @@ export function AdminPageClient() {
 
   function handleLogout() {
     window.localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+    if (readUserToken() === token) {
+      clearUserToken();
+    }
     setToken(null);
     setSession(null);
     setSettings([]);
     setDrafts({});
     setAuditLogs([]);
     setContactMessages([]);
+    setUsers([]);
+    setNewUser(emptyNewUser);
+    setEditingUserId(null);
+    setEditUser(null);
     setPassword("");
     setSuccess(null);
     setError(null);
@@ -225,6 +269,141 @@ export function AdminPageClient() {
     }
   }
 
+  function updateNewUser<K extends keyof AdminCreateUserInput>(
+    key: K,
+    value: AdminCreateUserInput[K],
+  ) {
+    setNewUser((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function startEditUser(user: AdminUser) {
+    setEditingUserId(user.id);
+    setEditUser({
+      username: user.username,
+      password: undefined,
+      displayName: user.displayName,
+      fullName: user.fullName,
+      email: user.email,
+      enabled: user.enabled,
+    });
+    setError(null);
+    setSuccess(null);
+  }
+
+  function cancelEditUser() {
+    setEditingUserId(null);
+    setEditUser(null);
+  }
+
+  function updateEditUser<K extends keyof AdminUpdateUserInput>(
+    key: K,
+    value: AdminUpdateUserInput[K],
+  ) {
+    setEditUser((current) => current ? { ...current, [key]: value } : current);
+  }
+
+  async function handleCreateUser(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!token) return;
+
+    setIsCreatingUser(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const created = await createAdminUser(token, {
+        username: newUser.username.trim(),
+        password: newUser.password,
+        displayName: newUser.displayName.trim(),
+        fullName: newUser.fullName.trim(),
+        email: newUser.email.trim(),
+        enabled: newUser.enabled,
+      });
+      const [logs, adminUsers] = await Promise.all([
+        listAdminAuditLogs(token),
+        listAdminUsers(token),
+      ]);
+      setAuditLogs(logs);
+      setUsers(adminUsers);
+      setNewUser(emptyNewUser);
+      setSuccess(`${created.username} added.`);
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "Could not add this user.",
+      );
+    } finally {
+      setIsCreatingUser(false);
+    }
+  }
+
+  async function handleSaveUser(id: number) {
+    if (!token || !editUser) return;
+
+    setSavingUserId(id);
+    setError(null);
+    setSuccess(null);
+    try {
+      const updated = await updateAdminUser(token, id, {
+        username: editUser.username.trim(),
+        password: editUser.password?.trim() || undefined,
+        displayName: editUser.displayName.trim(),
+        fullName: editUser.fullName.trim(),
+        email: editUser.email.trim(),
+        enabled: editUser.enabled,
+      });
+      const [logs, adminUsers] = await Promise.all([
+        listAdminAuditLogs(token),
+        listAdminUsers(token),
+      ]);
+      setAuditLogs(logs);
+      setUsers(adminUsers);
+      cancelEditUser();
+      setSuccess(`${updated.username} updated.`);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Could not update this user.",
+      );
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
+  async function handleDeleteUser(user: AdminUser) {
+    if (!token) return;
+    const confirmed = window.confirm(`Delete user "${user.username}" and all saved data for this user?`);
+    if (!confirmed) return;
+
+    setDeletingUserId(user.id);
+    setError(null);
+    setSuccess(null);
+    try {
+      await deleteAdminUser(token, user.id);
+      const [logs, messages, adminUsers] = await Promise.all([
+        listAdminAuditLogs(token),
+        listContactMessages(token),
+        listAdminUsers(token),
+      ]);
+      setAuditLogs(logs);
+      setContactMessages(messages);
+      setUsers(adminUsers);
+      setSuccess(`${user.username} deleted.`);
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Could not delete this user.",
+      );
+    } finally {
+      setDeletingUserId(null);
+    }
+  }
+
   if (isBooting) {
     return (
       <AdminPageSkeleton />
@@ -237,7 +416,7 @@ export function AdminPageClient() {
         <section className="w-full rounded-md border border-slate-200 bg-white">
           <div className="border-b border-slate-200 px-5 py-5">
             <h1 className="text-xl font-semibold text-slate-950">Admin login</h1>
-            <p className="mt-1 text-sm text-slate-600">Prompt settings</p>
+            <p className="mt-1 text-sm text-slate-600">Users and prompt settings</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4 px-5 py-5">
@@ -291,7 +470,9 @@ export function AdminPageClient() {
       <section className="min-w-0 rounded-md border border-slate-200 bg-white">
         <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-950">Prompt settings</h1>
+            <h1 className="text-2xl font-semibold text-slate-950">
+              {activeTab === "USERS" ? "User management" : "Prompt settings"}
+            </h1>
             <p className="mt-1 text-sm text-slate-600">
               Signed in as {session.username}
             </p>
@@ -320,7 +501,35 @@ export function AdminPageClient() {
           {error && <StatusMessage tone="error" message={error} />}
           {success && <StatusMessage tone="success" message={success} />}
 
-          {isLoading && !settings.length ? (
+          <div className="grid grid-cols-2 gap-1 rounded-md border border-slate-200 bg-slate-100 p-1 sm:w-fit">
+            <AdminTabButton active={activeTab === "USERS"} onClick={() => setActiveTab("USERS")}>
+              Users
+            </AdminTabButton>
+            <AdminTabButton active={activeTab === "PROMPTS"} onClick={() => setActiveTab("PROMPTS")}>
+              Prompt settings
+            </AdminTabButton>
+          </div>
+
+          {activeTab === "USERS" ? (
+            <UserManagementPanel
+              users={users}
+              session={session}
+              newUser={newUser}
+              editUser={editUser}
+              editingUserId={editingUserId}
+              isLoading={isLoading}
+              isCreatingUser={isCreatingUser}
+              savingUserId={savingUserId}
+              deletingUserId={deletingUserId}
+              onCreateUser={handleCreateUser}
+              onNewUserChange={updateNewUser}
+              onStartEdit={startEditUser}
+              onEditUserChange={updateEditUser}
+              onCancelEdit={cancelEditUser}
+              onSaveUser={handleSaveUser}
+              onDeleteUser={handleDeleteUser}
+            />
+          ) : isLoading && !settings.length ? (
             <PromptSettingsSkeleton />
           ) : (
             settings.map((setting) => {
@@ -518,6 +727,326 @@ export function AdminPageClient() {
         </section>
       </aside>
     </main>
+  );
+}
+
+function AdminTabButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-10 rounded-md px-3 text-sm font-semibold transition ${
+        active ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:bg-white/70 hover:text-slate-950"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function UserManagementPanel({
+  users,
+  session,
+  newUser,
+  editUser,
+  editingUserId,
+  isLoading,
+  isCreatingUser,
+  savingUserId,
+  deletingUserId,
+  onCreateUser,
+  onNewUserChange,
+  onStartEdit,
+  onEditUserChange,
+  onCancelEdit,
+  onSaveUser,
+  onDeleteUser,
+}: {
+  users: AdminUser[];
+  session: AdminSession;
+  newUser: AdminCreateUserInput;
+  editUser: AdminUpdateUserInput | null;
+  editingUserId: number | null;
+  isLoading: boolean;
+  isCreatingUser: boolean;
+  savingUserId: number | null;
+  deletingUserId: number | null;
+  onCreateUser: (event: FormEvent<HTMLFormElement>) => void;
+  onNewUserChange: <K extends keyof AdminCreateUserInput>(key: K, value: AdminCreateUserInput[K]) => void;
+  onStartEdit: (user: AdminUser) => void;
+  onEditUserChange: <K extends keyof AdminUpdateUserInput>(key: K, value: AdminUpdateUserInput[K]) => void;
+  onCancelEdit: () => void;
+  onSaveUser: (id: number) => Promise<void>;
+  onDeleteUser: (user: AdminUser) => Promise<void>;
+}) {
+  return (
+    <div className="space-y-4">
+      <form onSubmit={onCreateUser} className="rounded-md border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-4 py-4">
+          <h2 className="font-semibold text-slate-950">Add user</h2>
+          <p className="mt-1 text-sm text-slate-600">Create a student account from the admin page.</p>
+        </div>
+        <div className="grid gap-4 px-4 py-4 md:grid-cols-2">
+          <UserTextField
+            id="new-user-username"
+            label="Username"
+            value={newUser.username}
+            onChange={(value) => onNewUserChange("username", value)}
+          />
+          <UserTextField
+            id="new-user-password"
+            label="Password"
+            type="password"
+            value={newUser.password}
+            onChange={(value) => onNewUserChange("password", value)}
+          />
+          <UserTextField
+            id="new-user-display-name"
+            label="Display name"
+            value={newUser.displayName}
+            onChange={(value) => onNewUserChange("displayName", value)}
+          />
+          <UserTextField
+            id="new-user-full-name"
+            label="Full name"
+            value={newUser.fullName}
+            onChange={(value) => onNewUserChange("fullName", value)}
+          />
+          <UserTextField
+            id="new-user-email"
+            label="Email"
+            type="email"
+            value={newUser.email}
+            onChange={(value) => onNewUserChange("email", value)}
+          />
+          <label className="flex h-10 items-center gap-2 self-end text-sm font-medium text-slate-700">
+            <input
+              type="checkbox"
+              checked={newUser.enabled}
+              onChange={(event) => onNewUserChange("enabled", event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+            />
+            Enabled
+          </label>
+        </div>
+        <div className="flex justify-end border-t border-slate-200 px-4 py-4">
+          <button
+            type="submit"
+            disabled={isCreatingUser}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+          >
+            {isCreatingUser ? (
+              <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : null}
+            {isCreatingUser ? "Adding" : "Add user"}
+          </button>
+        </div>
+      </form>
+
+      <section className="rounded-md border border-slate-200 bg-white">
+        <div className="border-b border-slate-200 px-4 py-4">
+          <h2 className="font-semibold text-slate-950">All users</h2>
+          <p className="mt-1 text-sm text-slate-600">{users.length} accounts</p>
+        </div>
+        <div className="divide-y divide-slate-200">
+          {isLoading && !users.length ? (
+            <UserManagementSkeleton />
+          ) : users.length ? (
+            users.map((user) => {
+              const isCurrentUser = user.username === session.username;
+              const isEditing = editingUserId === user.id && editUser !== null;
+
+              return (
+                <article key={user.id} className="px-4 py-4">
+                  {isEditing && editUser ? (
+                    <div className="space-y-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <UserTextField
+                          id={`edit-user-username-${user.id}`}
+                          label="Username"
+                          value={editUser.username}
+                          onChange={(value) => onEditUserChange("username", value)}
+                        />
+                        <UserTextField
+                          id={`edit-user-password-${user.id}`}
+                          label="New password"
+                          type="password"
+                          value={editUser.password ?? ""}
+                          placeholder="Leave blank to keep current password"
+                          onChange={(value) => onEditUserChange("password", value || undefined)}
+                        />
+                        <UserTextField
+                          id={`edit-user-display-name-${user.id}`}
+                          label="Display name"
+                          value={editUser.displayName}
+                          onChange={(value) => onEditUserChange("displayName", value)}
+                        />
+                        <UserTextField
+                          id={`edit-user-full-name-${user.id}`}
+                          label="Full name"
+                          value={editUser.fullName}
+                          onChange={(value) => onEditUserChange("fullName", value)}
+                        />
+                        <UserTextField
+                          id={`edit-user-email-${user.id}`}
+                          label="Email"
+                          type="email"
+                          value={editUser.email}
+                          onChange={(value) => onEditUserChange("email", value)}
+                        />
+                        <label className="flex h-10 items-center gap-2 self-end text-sm font-medium text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={editUser.enabled}
+                            onChange={(event) => onEditUserChange("enabled", event.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500"
+                          />
+                          Enabled
+                        </label>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                        <button
+                          type="button"
+                          onClick={onCancelEdit}
+                          disabled={savingUserId === user.id}
+                          className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void onSaveUser(user.id)}
+                          disabled={savingUserId === user.id}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-70"
+                        >
+                          {savingUserId === user.id ? (
+                            <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" aria-hidden="true" />
+                          ) : null}
+                          {savingUserId === user.id ? "Saving" : "Save user"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">{user.displayName}</p>
+                        <p className="mt-1 break-words text-sm text-slate-600">
+                          {user.username} - {user.email || "no email"}
+                        </p>
+                        <p className="mt-1 break-words text-xs text-slate-500">
+                          {user.fullName || "No full name"} - created {formatDate(user.createdAt)}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {user.roles.map((role) => (
+                            <span key={`${user.id}-${role}`} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+                              {role}
+                            </span>
+                          ))}
+                          <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+                            {user.enabled ? "Enabled" : "Disabled"}
+                          </span>
+                          {isCurrentUser && (
+                            <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+                              Current admin
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+                        <button
+                          type="button"
+                          onClick={() => onStartEdit(user)}
+                          disabled={isCurrentUser}
+                          className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          title={isCurrentUser ? "Current admin account cannot be edited here" : "Edit user"}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void onDeleteUser(user)}
+                          disabled={isCurrentUser || deletingUserId === user.id}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-red-200 px-4 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          title={isCurrentUser ? "Current admin account cannot be deleted" : "Delete user"}
+                        >
+                          {deletingUserId === user.id ? (
+                            <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <FontAwesomeIcon icon={faTrashCan} className="h-4 w-4" aria-hidden="true" />
+                          )}
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })
+          ) : (
+            <div className="flex h-32 items-center justify-center px-5 text-center text-sm text-slate-500">
+              No users found.
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function UserTextField({
+  id,
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="text-sm font-medium text-slate-800">
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="mt-2 h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-100"
+      />
+    </div>
+  );
+}
+
+function UserManagementSkeleton() {
+  return (
+    <div className="divide-y divide-slate-200">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="px-4 py-4">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="mt-3 h-4 w-56" />
+          <div className="mt-4 flex gap-2">
+            <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-8 w-20" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

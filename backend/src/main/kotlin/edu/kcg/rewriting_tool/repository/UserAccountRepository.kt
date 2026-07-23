@@ -5,4 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface UserAccountRepository : JpaRepository<UserAccount, Long> {
     fun findByUsername(username: String): UserAccount?
+    fun findAllByOrderByCreatedAtDesc(): List<UserAccount>
 }

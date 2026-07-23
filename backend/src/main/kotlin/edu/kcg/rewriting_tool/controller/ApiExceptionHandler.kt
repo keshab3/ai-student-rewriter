@@ -1,6 +1,7 @@
 package edu.kcg.rewriting_tool.controller
 
 import edu.kcg.rewriting_tool.dto.ApiErrorResponse
+import edu.kcg.rewriting_tool.service.AdminUserDeleteException
 import edu.kcg.rewriting_tool.service.RewriteNotFoundException
 import edu.kcg.rewriting_tool.service.RewriteModeUnavailableException
 import edu.kcg.rewriting_tool.service.TextUploadException
@@ -44,6 +45,10 @@ class ApiExceptionHandler {
     @ExceptionHandler(UserAccountNotFoundException::class)
     fun handleUserNotFound(error: UserAccountNotFoundException): ResponseEntity<ApiErrorResponse> =
         apiError(HttpStatus.NOT_FOUND, error.message ?: "User account was not found.")
+
+    @ExceptionHandler(AdminUserDeleteException::class)
+    fun handleAdminUserDelete(error: AdminUserDeleteException): ResponseEntity<ApiErrorResponse> =
+        apiError(HttpStatus.BAD_REQUEST, error.message ?: "This user cannot be deleted.")
 
     @ExceptionHandler(TextUploadException::class)
     fun handleTextUpload(error: TextUploadException): ResponseEntity<ApiErrorResponse> =

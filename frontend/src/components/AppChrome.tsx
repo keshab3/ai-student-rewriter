@@ -94,7 +94,7 @@ function SiteHeader() {
 
   return (
     <header className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4 md:flex-row md:items-center md:justify-between">
+      <div className="site-header-inner mx-auto flex w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-6 sm:py-4 md:flex-row md:items-center md:justify-between">
         <Link href="/" className="flex min-w-0 items-center md:max-w-[280px]">
           <span className="min-w-0">
             <span className="block text-sm font-semibold leading-6 text-slate-950 sm:text-base">
@@ -106,7 +106,7 @@ function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="grid w-full grid-cols-3 gap-1 sm:flex sm:flex-wrap sm:items-center md:w-auto md:justify-end" aria-label="Main navigation">
+        <nav className="site-header-nav grid w-full grid-cols-3 gap-1 sm:flex sm:flex-wrap sm:items-center md:w-auto md:justify-end" aria-label="Main navigation">
           <Link href="/" className={navLinkClass}>
             Rewrite
           </Link>

@@ -255,7 +255,7 @@ export function HistoryPageClient() {
 
   return (
     <main className="page-shell">
-      <section className="rounded-md border border-slate-200 bg-white">
+      <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
         <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-slate-950">History</h1>
@@ -359,14 +359,14 @@ export function HistoryPageClient() {
                     const isExpanded = expandedItemIds.has(item.id) || editingId === item.id;
 
                     return (
-                    <article key={item.id} className="px-4 py-4">
+                    <article key={item.id} className="px-3 py-4 sm:px-4">
                       <button
                         type="button"
                         onClick={() => toggleItemDetails(item.id)}
                         aria-expanded={isExpanded}
-                        className="block w-full rounded-md text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
+                        className="block w-full overflow-hidden rounded-md text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
                       >
-                        <div className="flex flex-col gap-3 px-1 py-1 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 px-1 py-1 sm:flex sm:items-start sm:justify-between sm:gap-3">
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-medium text-slate-900">
@@ -382,14 +382,14 @@ export function HistoryPageClient() {
                             </p>
                             <HistoryMeta item={item} />
                           </div>
-                          <span className="inline-flex h-8 shrink-0 items-center gap-1.5 self-start rounded-md px-2 text-xs font-semibold text-slate-500">
+                          <span className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 self-start rounded-md px-2 text-xs font-semibold text-slate-500">
                             {isExpanded ? "Hide" : "Open"}
                             <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="h-3.5 w-3.5" aria-hidden="true" />
                           </span>
                         </div>
                       </button>
                       {isExpanded && (editingId === item.id ? (
-                        <div className="mt-4 space-y-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-4">
+                        <div className="mt-4 space-y-4 overflow-hidden rounded-md border border-slate-200 bg-slate-50 px-3 py-4 sm:px-4">
                           <div className="grid gap-4 md:grid-cols-2">
                             <div>
                               <label
@@ -460,7 +460,7 @@ export function HistoryPageClient() {
                           </div>
                         </div>
                       ) : (
-                        <div className="mt-4">
+                        <div className="mt-4 overflow-hidden">
                           <p className="whitespace-pre-wrap break-words text-base leading-7 text-slate-950">
                             {item.rewrittenText}
                           </p>
@@ -572,11 +572,11 @@ function HistoryActions({
   onDelete: () => void;
 }) {
   return (
-    <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+    <div className="mt-4 grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap">
       <button
         type="button"
         onClick={() => downloadRewriteText(item)}
-        className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100"
+        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100 sm:px-3"
       >
         <FontAwesomeIcon icon={faFileLines} className="h-4 w-4" aria-hidden="true" />
         TXT
@@ -584,7 +584,7 @@ function HistoryActions({
       <button
         type="button"
         onClick={() => downloadRewritePdf(item)}
-        className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 text-sm font-medium text-rose-700 transition hover:bg-rose-100"
+        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 sm:px-3"
       >
         <FontAwesomeIcon icon={faFilePdf} className="h-4 w-4" aria-hidden="true" />
         PDF
@@ -592,7 +592,7 @@ function HistoryActions({
       <button
         type="button"
         onClick={onEdit}
-        className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 rounded-md border border-slate-300 px-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:px-3"
       >
         <FontAwesomeIcon icon={faPenToSquare} className="h-4 w-4" aria-hidden="true" />
         Edit
@@ -600,7 +600,7 @@ function HistoryActions({
       <button
         type="button"
         onClick={onDelete}
-        className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+        className="inline-flex h-9 min-w-0 items-center justify-center gap-2 rounded-md border border-slate-300 px-2 text-sm font-medium text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 sm:px-3"
       >
         <FontAwesomeIcon icon={faTrashCan} className="h-4 w-4" aria-hidden="true" />
         Delete
@@ -649,14 +649,14 @@ function HistoryDetails({ item }: { item: RewriteResponse }) {
   return (
     <div className="mt-4 grid gap-3 lg:grid-cols-3">
       {!!item.avoidWords.length && (
-        <section className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+        <section className="overflow-hidden rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
           <h3 className="text-sm font-semibold text-slate-900">Avoid words</h3>
           <p className="mt-2 break-words text-sm leading-6 text-slate-600">{item.avoidWords.join(", ")}</p>
         </section>
       )}
 
       {!!suggestions.length && (
-        <section className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+        <section className="overflow-hidden rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
           <h3 className="text-sm font-semibold text-slate-900">Datamuse suggestions</h3>
           <div className="mt-2 space-y-2">
             {suggestions.slice(0, 3).map(([word, values]) => (
@@ -669,7 +669,7 @@ function HistoryDetails({ item }: { item: RewriteResponse }) {
       )}
 
       {item.evaluation && (
-        <section className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+        <section className="overflow-hidden rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
           <h3 className="text-sm font-semibold text-slate-900">Checklist</h3>
           <p className="mt-2 text-sm leading-6 text-slate-600">{item.evaluation.finalDecision}</p>
           {!!checklist.length && (

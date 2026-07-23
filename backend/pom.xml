@@ -11,21 +11,8 @@
     <groupId>edu.kcg</groupId>
     <artifactId>rewriting_tool</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>rewriting_tool</name>
-    <description>rewriting_tool</description>
-    <url/>
-    <licenses>
-        <license/>
-    </licenses>
-    <developers>
-        <developer/>
-    </developers>
-    <scm>
-        <connection/>
-        <developerConnection/>
-        <tag/>
-        <url/>
-    </scm>
+    <name>Student Writing Helper Backend</name>
+    <description>Kotlin Spring Boot REST API for the Student Writing Helper application.</description>
     <properties>
         <java.version>17</java.version>
         <kotlin.version>2.3.21</kotlin.version>

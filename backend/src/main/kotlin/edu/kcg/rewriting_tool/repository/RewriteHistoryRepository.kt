@@ -11,4 +11,5 @@ interface RewriteHistoryRepository : JpaRepository<RewriteHistory, Long> {
     fun findByIdAndOwner(id: Long, owner: UserAccount): Optional<RewriteHistory>
     fun existsByIdAndOwner(id: Long, owner: UserAccount): Boolean
     fun countByOwner(owner: UserAccount): Long
+    fun deleteByOwner(owner: UserAccount)
 }

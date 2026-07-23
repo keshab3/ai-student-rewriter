@@ -65,6 +65,35 @@ export type AdminAuditLog = {
   createdAt: string;
 };
 
+export type AdminUser = {
+  id: number;
+  username: string;
+  displayName: string;
+  fullName: string;
+  email: string;
+  roles: string[];
+  enabled: boolean;
+  createdAt: string;
+};
+
+export type AdminCreateUserInput = {
+  username: string;
+  password: string;
+  displayName: string;
+  fullName: string;
+  email: string;
+  enabled: boolean;
+};
+
+export type AdminUpdateUserInput = {
+  username: string;
+  password?: string;
+  displayName: string;
+  fullName: string;
+  email: string;
+  enabled: boolean;
+};
+
 export type UserSession = {
   username: string;
   roles: string[];
@@ -451,6 +480,39 @@ export function updatePromptSetting(
 
 export function listAdminAuditLogs(token: string): Promise<AdminAuditLog[]> {
   return request<AdminAuditLog[]>("/api/admin/audit-logs", {
+    headers: adminAuthHeaders(token),
+  });
+}
+
+export function listAdminUsers(token: string): Promise<AdminUser[]> {
+  return request<AdminUser[]>("/api/admin/users", {
+    headers: adminAuthHeaders(token),
+  });
+}
+
+export function createAdminUser(token: string, input: AdminCreateUserInput): Promise<AdminUser> {
+  return request<AdminUser>("/api/admin/users", {
+    method: "POST",
+    headers: adminAuthHeaders(token),
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateAdminUser(
+  token: string,
+  id: number,
+  input: AdminUpdateUserInput,
+): Promise<AdminUser> {
+  return request<AdminUser>(`/api/admin/users/${id}`, {
+    method: "PUT",
+    headers: adminAuthHeaders(token),
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteAdminUser(token: string, id: number): Promise<void> {
+  return request<void>(`/api/admin/users/${id}`, {
+    method: "DELETE",
     headers: adminAuthHeaders(token),
   });
 }

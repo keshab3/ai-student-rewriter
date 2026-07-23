@@ -65,9 +65,8 @@ export function RewriteWorkspace() {
   const [mode, setMode] = useState<RewriteMode>("GRAMMAR_FIX");
   const [activeTab, setActiveTab] = useState<RewriteTab>("SIMPLE");
   const [modes, setModes] = useState<RewriteModeOption[]>(REWRITE_MODES);
-  const [avoidWordsText, setAvoidWordsText] = useState(() =>
-    typeof window === "undefined" ? "" : window.localStorage.getItem(AVOID_WORDS_STORAGE_KEY) ?? "",
-  );
+  const [avoidWordsText, setAvoidWordsText] = useState("");
+  const [isAvoidWordsStorageReady, setIsAvoidWordsStorageReady] = useState(false);
   const [authToken, setAuthToken] = useState<string | null>(() =>
     typeof window === "undefined" ? null : readUserToken(),
   );
@@ -219,8 +218,18 @@ export function RewriteWorkspace() {
   }, []);
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setAvoidWordsText(window.localStorage.getItem(AVOID_WORDS_STORAGE_KEY) ?? "");
+      setIsAvoidWordsStorageReady(true);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
+    if (!isAvoidWordsStorageReady) return;
     window.localStorage.setItem(AVOID_WORDS_STORAGE_KEY, avoidWordsText);
-  }, [avoidWordsText]);
+  }, [avoidWordsText, isAvoidWordsStorageReady]);
 
   useEffect(() => {
     let isActive = true;
@@ -450,7 +459,7 @@ export function RewriteWorkspace() {
               setIsHistorySidebarOpen((current) => !current);
             }}
             aria-pressed={isHistorySidebarOpen}
-            className="inline-flex h-8 w-fit items-center justify-center gap-1.5 self-end rounded-md border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:-translate-y-px hover:border-emerald-200 hover:text-emerald-800 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100 sm:self-auto"
+            className="history-toggle inline-flex h-8 w-fit items-center justify-center gap-1.5 self-end rounded-md border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:-translate-y-px hover:border-emerald-200 hover:text-emerald-800 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-100 sm:self-auto"
           >
             <FontAwesomeIcon icon={faClockRotateLeft} className="h-3.5 w-3.5" aria-hidden="true" />
             {isHistorySidebarOpen ? "Hide history" : "View history"}
@@ -461,7 +470,7 @@ export function RewriteWorkspace() {
         )}
       </div>
 
-      <div className={`grid gap-5 ${hasHistory && isHistorySidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_310px]" : "lg:grid-cols-1"}`}>
+      <div className={`workspace-grid grid gap-5 ${hasHistory && isHistorySidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_310px]" : "lg:grid-cols-1"}`}>
         <section className="min-w-0 overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
           <form onSubmit={handleSubmit}>
             <div className="border-b border-slate-200 bg-slate-50/80 px-3 py-2">
@@ -675,7 +684,7 @@ export function RewriteWorkspace() {
                     </button>
                   </div>
                 </div>
-                <div className="flex h-[260px] flex-col px-3 py-3 sm:h-[340px] sm:px-4 sm:py-4 lg:h-[430px]">
+                <div className="workspace-result-box flex h-[260px] flex-col px-3 py-3 sm:h-[340px] sm:px-4 sm:py-4 lg:h-[430px]">
                   <div className="min-h-0 flex-1 overflow-y-auto pr-1">
                     {isSubmitting ? (
                       <ProgressPanel />
@@ -747,7 +756,7 @@ export function RewriteWorkspace() {
         </section>
 
         {hasHistory && isHistorySidebarOpen && (
-          <aside className="min-w-0 space-y-5">
+          <aside className="workspace-history-aside min-w-0 space-y-5">
             <HistoryPanel
               history={history}
               isLoading={isLoadingHistory}
@@ -845,7 +854,7 @@ function HistoryPanel({
   onOpen: (item: RewriteResponse) => void;
 }) {
   return (
-    <section className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+    <section className="workspace-history-panel overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-4 py-3">
         <div className="flex items-center gap-2">
           <FontAwesomeIcon icon={faClockRotateLeft} className="h-4 w-4 text-emerald-700" aria-hidden="true" />

@@ -27,6 +27,45 @@ class AdminAuditService(
         )
     }
 
+    @Transactional
+    fun recordUserDeleted(username: String, deletedUsername: String) {
+        val actor = userAccountRepository.findByUsername(username)
+        adminAuditLogRepository.save(
+            AdminAuditLog(
+                actor = actor,
+                action = "USER_DELETED",
+                details = "Deleted user account $deletedUsername.",
+                createdAt = LocalDateTime.now(),
+            ),
+        )
+    }
+
+    @Transactional
+    fun recordUserCreated(username: String, createdUsername: String) {
+        val actor = userAccountRepository.findByUsername(username)
+        adminAuditLogRepository.save(
+            AdminAuditLog(
+                actor = actor,
+                action = "USER_CREATED",
+                details = "Created user account $createdUsername.",
+                createdAt = LocalDateTime.now(),
+            ),
+        )
+    }
+
+    @Transactional
+    fun recordUserUpdated(username: String, updatedUsername: String) {
+        val actor = userAccountRepository.findByUsername(username)
+        adminAuditLogRepository.save(
+            AdminAuditLog(
+                actor = actor,
+                action = "USER_UPDATED",
+                details = "Updated user account $updatedUsername.",
+                createdAt = LocalDateTime.now(),
+            ),
+        )
+    }
+
     @Transactional(readOnly = true)
     fun listRecent(): List<AdminAuditLogResponse> =
         adminAuditLogRepository.findTop20ByOrderByCreatedAtDesc().map { log ->

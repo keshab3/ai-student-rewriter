@@ -9,4 +9,6 @@ interface UserPromptSettingRepository : JpaRepository<UserPromptSetting, Long> {
     fun findAllByOwner(owner: UserAccount): List<UserPromptSetting>
 
     fun findByOwnerAndMode(owner: UserAccount, mode: RewriteMode): UserPromptSetting?
+
+    fun deleteByOwner(owner: UserAccount)
 }
