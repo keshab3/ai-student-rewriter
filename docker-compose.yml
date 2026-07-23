@@ -18,7 +18,7 @@ services:
       retries: 10
 
   backend:
-    image: ai-writing-kotlin:backend
+    image: keshab3/ai-writing-kotlin-backend:latest
     container_name: ai-writing-kotlin-backend
     restart: unless-stopped
     build:
@@ -45,7 +45,7 @@ services:
         condition: service_healthy
 
   frontend:
-    image: ai-writing-kotlin:frontend
+    image: keshab3/ai-writing-kotlin-frontend:latest
     container_name: ai-writing-kotlin-frontend
     restart: unless-stopped
     build:
