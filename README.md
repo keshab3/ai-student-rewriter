@@ -2,7 +2,6 @@
 
 Kotlin Spring Boot backend and Next.js frontend for a full stack student writing assistant.
 
-Prepared by: Amgain Keshab (M25W7495)
 
 ## Overview
 
